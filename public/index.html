@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snip — URL Shortener</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #16161a;
+      --border: #2a2a32;
+      --accent: #7fff6e;
+      --accent-dim: rgba(127,255,110,0.12);
+      --text: #f0f0f4;
+      --muted: #6b6b7a;
+      --danger: #ff5e5e;
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 80px;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container { width: 100%; max-width: 680px; position: relative; z-index: 1; }
+
+    header { text-align: center; margin-bottom: 48px; padding-top: 20px; }
+    .logo {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      color: var(--text);
+    }
+    .logo span { color: var(--accent); }
+    .tagline { color: var(--muted); font-size: 15px; margin-top: 8px; font-weight: 400; }
+
+    /* Auth card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg); border-radius: 8px; padding: 4px; }
+    .tab {
+      flex: 1; padding: 9px; text-align: center; border-radius: 6px;
+      cursor: pointer; font-family: 'Syne', sans-serif; font-weight: 600;
+      font-size: 13px; border: none; background: transparent;
+      color: var(--muted); transition: all 0.15s;
+    }
+    .tab.active { background: var(--accent); color: #0d0d0f; }
+
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.05em; text-transform: uppercase; }
+
+    input {
+      width: 100%; padding: 11px 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: 14px;
+      outline: none; transition: border-color 0.15s;
+    }
+    input:focus { border-color: var(--accent); }
+    input::placeholder { color: var(--muted); }
+
+    .btn {
+      width: 100%; padding: 12px;
+      background: var(--accent); color: #0d0d0f;
+      border: none; border-radius: 8px;
+      font-family: 'Syne', sans-serif; font-weight: 700;
+      font-size: 14px; cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      letter-spacing: 0.02em;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:active { transform: scale(0.99); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-ghost {
+      background: transparent; color: var(--text);
+      border: 1px solid var(--border);
+      width: auto; padding: 7px 14px; font-size: 12px;
+    }
+
+    .error { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+    .error.show { display: block; }
+
+    /* App section */
+    #app-section { display: none; }
+
+    .user-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .user-badge {
+      font-size: 13px; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+    .user-badge strong { color: var(--accent); }
+
+    /* Shorten form */
+    .shorten-row { display: flex; gap: 10px; }
+    .shorten-row input { flex: 1; }
+    .shorten-row .btn { width: auto; padding: 11px 20px; white-space: nowrap; }
+
+    .options-row { display: flex; gap: 10px; margin-top: 10px; }
+    .options-row input { flex: 1; }
+
+    /* URL list */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 28px 0 14px;
+    }
+    .section-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .count-badge {
+      background: var(--accent-dim); color: var(--accent);
+      border-radius: 20px; padding: 2px 10px;
+      font-size: 12px; font-weight: 700; font-family: 'DM Mono', monospace;
+    }
+
+    .url-list { display: flex; flex-direction: column; gap: 10px; }
+    .url-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .url-top { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .short-link {
+      font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500;
+      color: var(--accent); text-decoration: none;
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .short-link:hover { text-decoration: underline; }
+
+    .url-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .original-url {
+      font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      margin-bottom: 10px;
+    }
+
+    .url-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+    .meta-chip {
+      font-size: 11px; color: var(--muted); font-weight: 600;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .meta-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; }
+    .meta-chip.clicks .dot { background: var(--accent); }
+    .meta-chip.expired { color: var(--danger); }
+    .meta-chip.expired .dot { background: var(--danger); }
+
+    /* Stats panel */
+    .stats-panel {
+      background: var(--bg); border: 1px solid var(--accent);
+      border-radius: 8px; padding: 14px 16px; margin-top: 10px;
+      font-family: 'DM Mono', monospace; font-size: 12px;
+      color: var(--muted);
+    }
+    .stats-panel pre { white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+
+    .empty-state {
+      text-align: center; padding: 48px 20px;
+      color: var(--muted); font-size: 14px;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 12px; }
+
+    .copy-toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #0d0d0f;
+      padding: 10px 20px; border-radius: 30px;
+      font-weight: 700; font-size: 13px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 999;
+    }
+    .copy-toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">sni<span>p</span></div>
+    <div class="tagline">Short links. Real analytics. No fluff.</div>
+  </header>
+
+  <!-- AUTH SECTION -->
+  <div id="auth-section">
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('login')">Login</button>
+        <button class="tab" onclick="switchTab('register')">Register</button>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input id="auth-email" type="email" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="auth-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter') submitAuth()" />
+      </div>
+      <div class="error" id="auth-error"></div>
+      <button class="btn" id="auth-btn" onclick="submitAuth()" style="margin-top:8px">Login</button>
+    </div>
+  </div>
+
+  <!-- APP SECTION -->
+  <div id="app-section">
+    <div class="card">
+      <div class="user-bar">
+        <span class="user-badge">Logged in as <strong id="user-email-display"></strong></span>
+        <button class="btn btn-ghost" onclick="logout()">Logout</button>
+      </div>
+
+      <div class="form-group">
+        <label>Shorten a URL</label>
+        <div class="shorten-row">
+          <input id="url-input" type="url" placeholder="https://your-long-url.com/goes/here" />
+          <button class="btn" onclick="createUrl()" id="shorten-btn">Snip it</button>
+        </div>
+      </div>
+      <div class="options-row">
+        <input id="custom-code" type="text" placeholder="Custom alias (optional)" maxlength="20" />
+        <input id="expires-in" type="number" placeholder="Expires in days (optional)" min="1" max="365" />
+      </div>
+      <div class="error" id="url-error"></div>
+    </div>
+
+    <div class="section-header">
+      <span class="section-title">Your Links</span>
+      <span class="count-badge" id="url-count">0</span>
+    </div>
+    <div class="url-list" id="url-list"></div>
+  </div>
+</div>
+
+<div class="copy-toast" id="copy-toast">Copied!</div>
+
+<script>
+  const API = '/api';
+  let token = localStorage.getItem('snip_token');
+  let userEmail = localStorage.getItem('snip_email');
+  let activeTab = 'login';
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'register'));
+    });
+    document.getElementById('auth-btn').textContent = tab === 'login' ? 'Login' : 'Create Account';
+    document.getElementById('auth-error').classList.remove('show');
+  }
+
+  async function submitAuth() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+    const btn = document.getElementById('auth-btn');
+
+    if (!email || !password) { showError(errEl, 'Email and password required'); return; }
+
+    btn.disabled = true;
+    btn.textContent = activeTab === 'login' ? 'Logging in…' : 'Creating account…';
+
+    try {
+      const res = await fetch(`${API}/auth/${activeTab}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(errEl, data.error); return; }
+      token = data.token;
+      userEmail = data.user.email;
+      localStorage.setItem('snip_token', token);
+      localStorage.setItem('snip_email', userEmail);
+      showApp();
+    } catch (e) {
+      showError(errEl, 'Network error. Is the server running?');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = activeTab === 'login' ? 'Login' : 'Create Account';
+    }
+  }
+
+  async function createUrl() {
+    const url = document.getElementById('url-input').value.trim();
+    const customCode = document.getElementById('custom-code').value.trim();
+    const expiresIn = document.getElementById('expires-in').value.trim();
+    const errEl = document.getElementById('url-error');
+    const btn = document.getElementById('shorten-btn');
+
+    if (!url) { showError(errEl, 'Please enter a URL'); return; }
+
+    btn.disabled = true; btn.textContent = 'Snipping…';
+    errEl.classList.remove('show');
+
+    try {
+      const body = { url };
+      if (customCode) body.customCode = customCode;
+      if (expiresIn) body.expiresIn = parseInt(expiresIn);
+
+      const res = await fetch(`${API}/urls`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) { showError(errEl, data.error); return; }
+      document.getElementById('url-input').value = '';
+      document.getElementById('custom-code').value = '';
+      document.getElementById('expires-in').value = '';
+      await loadUrls();
+    } catch (e) {
+      showError(errEl, 'Failed to create URL');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Snip it';
+    }
+  }
+
+  async function loadUrls() {
+    try {
+      const res = await fetch(`${API}/urls`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      renderUrls(data.urls);
+    } catch (e) {
+      console.error('Failed to load URLs', e);
+    }
+  }
+
+  function renderUrls(urls) {
+    const list = document.getElementById('url-list');
+    document.getElementById('url-count').textContent = urls.length;
+
+    if (!urls.length) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">✂️</div>No links yet. Snip your first URL above!</div>`;
+      return;
+    }
+
+    list.innerHTML = urls.map(u => `
+      <div class="url-item" id="item-${u.shortCode}">
+        <div class="url-top">
+          <a class="short-link" href="${u.shortUrl}" target="_blank">${u.shortUrl}</a>
+          <div class="url-actions">
+            <button class="btn btn-ghost" onclick="copyLink('${u.shortUrl}')">Copy</button>
+            <button class="btn btn-ghost" onclick="toggleStats('${u.shortCode}')">Stats</button>
+            <button class="btn btn-ghost btn-danger" onclick="deleteUrl('${u.shortCode}')">✕</button>
+          </div>
+        </div>
+        <div class="original-url" title="${u.originalUrl}">${u.originalUrl}</div>
+        <div class="url-meta">
+          <span class="meta-chip clicks"><span class="dot"></span>${u.clicks} click${u.clicks !== 1 ? 's' : ''}</span>
+          <span class="meta-chip"><span class="dot"></span>Created ${formatDate(u.createdAt)}</span>
+          ${u.isExpired ? `<span class="meta-chip expired"><span class="dot"></span>Expired</span>` : ''}
+          ${u.expiresAt && !u.isExpired ? `<span class="meta-chip"><span class="dot"></span>Expires ${formatDate(u.expiresAt)}</span>` : ''}
+        </div>
+        <div class="stats-panel" id="stats-${u.shortCode}" style="display:none"></div>
+      </div>
+    `).join('');
+  }
+
+  async function toggleStats(shortCode) {
+    const panel = document.getElementById(`stats-${shortCode}`);
+    if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
+
+    panel.style.display = 'block';
+    panel.innerHTML = '<pre>Loading stats…</pre>';
+
+    try {
+      const res = await fetch(`${API}/urls/${shortCode}/stats`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      const recent = data.recentClicks.slice(0, 5).map(c =>
+        `  • ${c.clicked_at} — ${c.ip_address || 'unknown IP'}`
+      ).join('\n') || '  (no clicks yet)';
+      panel.innerHTML = `<pre>Total clicks: ${data.totalClicks}\n\nRecent activity:\n${recent}</pre>`;
+    } catch (e) {
+      panel.innerHTML = '<pre>Failed to load stats.</pre>';
+    }
+  }
+
+  async function deleteUrl(shortCode) {
+    if (!confirm('Delete this link?')) return;
+    try {
+      const res = await fetch(`${API}/urls/${shortCode}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        document.getElementById(`item-${shortCode}`)?.remove();
+        const count = document.querySelectorAll('.url-item').length;
+        document.getElementById('url-count').textContent = count;
+        if (count === 0) loadUrls();
+      }
+    } catch (e) { alert('Failed to delete'); }
+  }
+
+  function copyLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+      const t = document.getElementById('copy-toast');
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    });
+  }
+
+  function showApp() {
+    document.getElementById('auth-section').style.display = 'none';
+    document.getElementById('app-section').style.display = 'block';
+    document.getElementById('user-email-display').textContent = userEmail;
+    loadUrls();
+  }
+
+  function logout() {
+    token = null; userEmail = null;
+    localStorage.removeItem('snip_token');
+    localStorage.removeItem('snip_email');
+    document.getElementById('auth-section').style.display = 'block';
+    document.getElementById('app-section').style.display = 'none';
+  }
+
+  function showError(el, msg) { el.textContent = msg; el.classList.add('show'); }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // Auto-login if token exists
+  if (token) showApp();
+</script>
+</body>
+</html>
