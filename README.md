@@ -43,7 +43,7 @@ A production-ready REST API for shortening URLs, built with **Node.js**, **Expre
 ### Option A — Docker (recommended)
 
 ```bash
-git clone https://github.com//url-shortener-api.git
+git clone https://github.com/haydenmbrowerprofessional-maker/url-shortener-api.git
 cd url-shortener-api
 docker compose up --build
 ```
@@ -61,7 +61,7 @@ docker compose exec app npm run db:migrate
 **Prerequisites:** Node.js 20+, PostgreSQL 15+
 
 ```bash
-git clone https://github.com//url-shortener-api.git
+git clone https://github.com/haydenmbrowerprofessional-maker/url-shortener-api.git
 cd url-shortener-api
 
 # Install dependencies
